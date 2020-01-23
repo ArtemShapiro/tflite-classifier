@@ -1,10 +1,5 @@
-try:
-  import unzip_requirements
-except ImportError:
-  pass
-  
-from skimage.io import imread, imsave
-from skimage.transform import resize
+from urllib.request import urlopen
+from PIL import Image
 
 from tflite_runtime.interpreter import Interpreter
 
@@ -50,22 +45,21 @@ def classify_image(interpreter, image, top_k=1):
 
 def process_url(url):
     # read from url
-    image = imread(url)
+    image = Image.open(urlopen(url))
     # resize image
-    image = resize(image, (height, width))
+    image = image.resize((height, width), Image.ANTIALIAS)
+
+    image = np.array(image) / 255
+
     # Run calssification
     return classify_image(interpreter, image)
 
 
-def predict(event, context):
-    body = json.loads(event.get('body'))
-    url = body["url"]
+def predict(request):
+    url = request.get_json()["url"]
+    label_id, prob = process_url(url)[0]
 
-    label_id, prob = process_url(url)
-
-    response = {
-        "statusCode": 200,
-        "body": json.dumps({"labels": labels[label_id], "probability": prob}),
-    }
-
-    return response
+    return json.dumps({
+        "labels": labels[label_id],
+        "probability": float(prob)
+    })

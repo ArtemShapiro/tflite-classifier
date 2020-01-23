@@ -1,0 +1,9 @@
+{
+  "name": "tflite-classifier",
+  "description": "",
+  "version": "1.0.0",
+  "dependencies": {},
+  "devDependencies": {
+    "serverless-google-cloudfunctions": "^2.3.3"
+  }
+}
