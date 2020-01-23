@@ -1,3 +1,6 @@
+from skimage.io import imread, imsave
+from skimage.transform import resize
+
 from tflite_runtime.interpreter import Interpreter
 
 import json
@@ -10,10 +13,12 @@ def load_labels(path):
 
 
 # Model
-interpreter = Interpreter('./mobnet/mobilenet_v1_1.0_224_quant.tflite')
+interpreter = Interpreter('./mobnet/mobilenet.tflite')
+interpreter.allocate_tensors()
+_, height, width, _ = interpreter.get_input_details()[0]['shape']
 
 # Labels
-labels = load_labels('./mobnet/labels_mobilenet_quant_v1_224.txt')
+labels = load_labels('./mobnet/labels.txt')
 
 
 def set_input_tensor(interpreter, image):
@@ -38,32 +43,24 @@ def classify_image(interpreter, image, top_k=1):
     return [(i, output[i]) for i in ordered[:top_k]]
 
 
-def process_image(img):
-    # Model
-    interpreter.allocate_tensors()
-
-    _, height, width, _ = interpreter.get_input_details()[0]['shape']
-    print(height, width)
-
-    # image = Image.open(stream).convert('RGB').resize((width, height, Image.ANTIALIAS)
-    # results = classify_image(interpreter, image)
+def process_url(url):
+    # read from url
+    image = imread(url)
+    # resize image
+    image = resize(image, (height, width))
+    # Run calssification
+    return classify_image(interpreter, image)
 
 
 def predict(event, context):
     body = json.loads(event.get('body'))
+    url = body["url"]
+
+    label_id, prob = process_url(url)
 
     response = {
         "statusCode": 200,
-        "body": json.dumps(body),
+        "body": json.dumps({"labels": labels[label_id], "probability": prob}),
     }
 
     return response
-
-    # Use this code if you don't use the http event with the LAMBDA-PROXY
-    # integration
-    """
-    return {
-        "message": "Go Serverless v1.0! Your function executed successfully!",
-        "event": event
-    }
-    """
