@@ -1,3 +1,8 @@
+try:
+  import unzip_requirements
+except ImportError:
+  pass
+  
 from skimage.io import imread, imsave
 from skimage.transform import resize
 

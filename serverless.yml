@@ -120,4 +120,5 @@ plugins:
 
 custom:
   pythonRequirements:
+    zip: true
     dockerizePip: true
