@@ -1,5 +1,5 @@
-from urllib.request import urlopen
 from PIL import Image
+from urllib.request import urlopen
 
 from tflite_runtime.interpreter import Interpreter
 
@@ -8,54 +8,64 @@ import numpy as np
 
 
 def load_labels(path):
-  with open(path, 'r') as f:
-    return {i: line.strip() for i, line in enumerate(f.readlines())}
+    """" Reads labels from file """
+    with open(path, 'r') as f:
+        return {i: line.strip() for i, line in enumerate(f.readlines())}
 
 
-# Model
+# Model initialization
 interpreter = Interpreter('./mobnet/mobilenet.tflite')
 interpreter.allocate_tensors()
-_, height, width, _ = interpreter.get_input_details()[0]['shape']
 
-# Labels
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
+
+_, height, width, _ = input_details[0]['shape']
+
+# Labels initialization
 labels = load_labels('./mobnet/labels.txt')
 
-
-def set_input_tensor(interpreter, image):
-    tensor_index = interpreter.get_input_details()[0]['index']
-    input_tensor = interpreter.tensor(tensor_index)()[0]
-    input_tensor[:, :] = image
+# CONSTANTS initialization
+INPUT_MEAN = 127.5
+INPUT_STD = 127.5
 
 
-def classify_image(interpreter, image, top_k=1):
+def classify_image(image, top_k: int=1):
     """Returns a sorted array of classification results."""
-    set_input_tensor(interpreter, image)
+    input_data = np.expand_dims(image, axis=0)
+
+    interpreter.set_tensor(input_details[0]['index'], input_data)
     interpreter.invoke()
-    output_details = interpreter.get_output_details()[0]
-    output = np.squeeze(interpreter.get_tensor(output_details['index']))
 
-    # If the model is quantized (uint8 data), then dequantize the results
-    if output_details['dtype'] == np.uint8:
-        scale, zero_point = output_details['quantization']
-        output = scale * (output - zero_point)
+    output_data = np.squeeze(interpreter.get_tensor(output_details[0]['index']))
 
-    ordered = np.argpartition(-output, top_k)
-    return [(i, output[i]) for i in ordered[:top_k]]
+    ordered = np.argpartition(-output_data, top_k)
+    return [(i, output_data[i]) for i in ordered[:top_k]]
 
 
-def process_url(url):
+def preprocess_input(image):
+    """
+    Returns normalized image according to backbone input preprocess. Type of preprocess:
+    1) Resize
+    2) Normalizatino
+    """
+    image = image.resize((height, width), Image.ANTIALIAS)
+    # return np.float32(image)/255
+    return (np.float32(image) - INPUT_MEAN) / INPUT_STD
+
+
+def process_url(url: str = ''):
+    """ Functions for reading image from URL. Returns results of classification """
     # read from url
     image = Image.open(urlopen(url))
-    # resize image
-    image = image.resize((height, width), Image.ANTIALIAS)
-
-    image = np.array(image) / 255
-
+    # Normalizate input
+    input_image = preprocess_input(image)
     # Run calssification
-    return classify_image(interpreter, image)
+    return classify_image(input_image)
 
 
 def predict(request):
+    """ Endpoint functions. Classifies iamge from the link """
     url = request.get_json()["url"]
     label_id, prob = process_url(url)[0]
 
