@@ -1,6 +1,8 @@
 from PIL import Image
 from urllib.request import urlopen
 
+from flask import escape
+
 from tflite_runtime.interpreter import Interpreter
 
 import json
@@ -28,6 +30,8 @@ labels = load_labels('./mobnet/labels.txt')
 # CONSTANTS initialization
 INPUT_MEAN = 127.5
 INPUT_STD = 127.5
+
+URL_KEY = 'url'
 
 
 def classify_image(image, top_k: int=1):
@@ -66,10 +70,14 @@ def process_url(url: str = ''):
 
 def predict(request):
     """ Endpoint functions. Classifies iamge from the link """
-    url = request.get_json()["url"]
-    label_id, prob = process_url(url)[0]
+    request_json = request.get_json(silent=True)
 
-    return json.dumps({
-        "labels": labels[label_id],
-        "probability": float(prob)
-    })
+    if request_json and URL_KEY in request_json:
+        label_id, prob = process_url(request_json[URL_KEY])[0]
+
+        return json.dumps({
+            "labels": labels[label_id],
+            "probability": float(prob)
+        })
+    else:
+        return f"No key '{escape(URL_KEY)}' in request body!"

@@ -18,7 +18,7 @@ functions:
   predict:
     handler: predict
     events:
-      - http: path
+      - http: predict
 
 plugins:
   - serverless-google-cloudfunctions
